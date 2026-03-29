@@ -101,18 +101,20 @@ export function VideoCarousel({ videos }: VideoCarouselProps) {
             <p className="text-[11px] text-ink-400 truncate">
               {video.creator_handle}
             </p>
-            <div className="flex items-center gap-3 text-[11px] text-ink-400">
-              <span className="flex items-center gap-0.5">
-                <Eye className="h-3 w-3" />
-                {formatNumber(video.views)}
-              </span>
-              <span className="flex items-center gap-0.5">
-                <Heart className="h-3 w-3" />
-                {formatNumber(video.likes)}
-              </span>
-            </div>
+            {(video.views > 0 || video.likes > 0) && (
+              <div className="flex items-center gap-3 text-[11px] text-ink-400">
+                <span className="flex items-center gap-0.5">
+                  <Eye className="h-3 w-3" />
+                  {formatNumber(video.views)}
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <Heart className="h-3 w-3" />
+                  {formatNumber(video.likes)}
+                </span>
+              </div>
+            )}
             <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-brand-600 group-hover:text-brand-700 transition-colors">
-              Watch <ExternalLink className="h-3 w-3 flex-shrink-0" />
+              {video.views > 0 ? "Watch" : "Search"} <ExternalLink className="h-3 w-3 flex-shrink-0" />
             </span>
           </div>
         </a>

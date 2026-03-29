@@ -424,29 +424,37 @@ function generateVideos(
   trendName?: string,
   niche?: string
 ): TrendVideo[] {
-  const platforms: Platform[] = ["TikTok", "Instagram", "YouTube Shorts"];
-  // Use the trend name for search links so they actually find relevant content
   const searchQuery = trendName && niche
-    ? `${trendName} ${niche}`
+    ? `${trendName}`
     : trendName || niche || "trending";
 
-  return Array.from({ length: count }, (_, i) => {
-    const creator = pick(seed.creators, rand);
-    const platform = pick(platforms, rand);
-    const gradient = THUMBNAIL_GRADIENTS[Math.floor(rand() * THUMBNAIL_GRADIENTS.length)];
+  // Generate one card per platform so every link is useful
+  const platformConfigs: { platform: Platform; makeLink: (q: string) => string }[] = [
+    {
+      platform: "TikTok",
+      makeLink: (q) => `https://www.tiktok.com/search?q=${encodeURIComponent(q)}`,
+    },
+    {
+      platform: "YouTube Shorts",
+      makeLink: (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q + " shorts")}`,
+    },
+    {
+      platform: "Instagram",
+      makeLink: (q) => `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(q)}`,
+    },
+  ];
+
+  return platformConfigs.map((config, i) => {
+    const gradient = THUMBNAIL_GRADIENTS[i % THUMBNAIL_GRADIENTS.length];
     return {
-      id: `vid_${Math.floor(rand() * 100000)}`,
+      id: `search_${config.platform.replace(/\s+/g, "_").toLowerCase()}_${Math.floor(rand() * 100000)}`,
       thumbnail_url: `gradient:${gradient[0]}:${gradient[1]}`,
-      creator_name: creator.replace(/[._]/g, " "),
-      creator_handle: `@${creator}`,
-      platform,
-      views: Math.floor(rand() * 5_000_000) + 50_000,
-      likes: Math.floor(rand() * 500_000) + 5_000,
-      link: platform === "TikTok"
-        ? `https://www.tiktok.com/search?q=${encodeURIComponent(searchQuery)}`
-        : platform === "Instagram"
-          ? `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(searchQuery)}`
-          : `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}+shorts`,
+      creator_name: `Search ${config.platform}`,
+      creator_handle: searchQuery,
+      platform: config.platform,
+      views: 0,
+      likes: 0,
+      link: config.makeLink(searchQuery),
     };
   });
 }
