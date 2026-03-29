@@ -420,28 +420,33 @@ const THUMBNAIL_GRADIENTS = [
 function generateVideos(
   seed: NicheSeed,
   rand: () => number,
-  count: number
+  count: number,
+  trendName?: string,
+  niche?: string
 ): TrendVideo[] {
   const platforms: Platform[] = ["TikTok", "Instagram", "YouTube Shorts"];
+  // Use the trend name for search links so they actually find relevant content
+  const searchQuery = trendName && niche
+    ? `${trendName} ${niche}`
+    : trendName || niche || "trending";
+
   return Array.from({ length: count }, (_, i) => {
     const creator = pick(seed.creators, rand);
     const platform = pick(platforms, rand);
     const gradient = THUMBNAIL_GRADIENTS[Math.floor(rand() * THUMBNAIL_GRADIENTS.length)];
     return {
       id: `vid_${Math.floor(rand() * 100000)}`,
-      // Encode gradient colors into the URL so the UI can render a unique thumbnail per video
       thumbnail_url: `gradient:${gradient[0]}:${gradient[1]}`,
       creator_name: creator.replace(/[._]/g, " "),
       creator_handle: `@${creator}`,
       platform,
       views: Math.floor(rand() * 5_000_000) + 50_000,
       likes: Math.floor(rand() * 500_000) + 5_000,
-      // Real search URL so the user can actually find this creator on the platform
       link: platform === "TikTok"
-        ? `https://www.tiktok.com/search?q=${encodeURIComponent(creator)}`
+        ? `https://www.tiktok.com/search?q=${encodeURIComponent(searchQuery)}`
         : platform === "Instagram"
-          ? `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(creator)}`
-          : `https://www.youtube.com/results?search_query=${encodeURIComponent(creator)}+shorts`,
+          ? `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(searchQuery)}`
+          : `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}+shorts`,
     };
   });
 }
@@ -616,7 +621,7 @@ class HybridTrendProvider implements TrendProvider {
       const videos =
         realVideos.length > 0
           ? realVideos
-          : generateVideos(seed, rand, 3 + Math.floor(rand() * 3));
+          : generateVideos(seed, rand, 3 + Math.floor(rand() * 3), name, niche);
 
       const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
       const niceCap = niche.split(" ").map(capitalize).join(" ");
