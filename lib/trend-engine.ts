@@ -501,13 +501,15 @@ function generateReplicationGuide(
 }
 
 // ─── Hybrid Provider ──────────────────────────────────────────────────────────
-// Uses mock trend intelligence (names, scores, guides) + REAL YouTube Shorts videos
+// Known niches: curated seed data + real YouTube videos
+// Unknown niches: discover real trend names from YouTube + real videos
 
-import { fetchYouTubeShorts } from "./youtube";
+import { fetchYouTubeShorts, discoverTrendingTopics } from "./youtube";
 
 class HybridTrendProvider implements TrendProvider {
   async fetchTrends(niche: string, count: number): Promise<Trend[]> {
     const normalizedNiche = niche.toLowerCase().trim();
+    const hasSeeds = normalizedNiche in NICHE_SEEDS;
     const seed = NICHE_SEEDS[normalizedNiche] ?? DEFAULT_SEED;
     const rand = seededRandom(normalizedNiche + "_v1");
     const stages: LifecycleStage[] = [
@@ -517,7 +519,34 @@ class HybridTrendProvider implements TrendProvider {
       "Declining",
     ];
 
-    const trendNames = pickN(seed.trends, count, rand);
+    // For unknown niches, discover real trending topics from YouTube
+    let trendNames: string[];
+    if (hasSeeds) {
+      trendNames = pickN(seed.trends, count, rand);
+    } else {
+      const discovered = await discoverTrendingTopics(normalizedNiche, count);
+      trendNames =
+        discovered.length >= 5
+          ? discovered.slice(0, count)
+          : // If YouTube didn't return enough, generate niche-specific fallbacks
+            generateFallbackTrendNames(normalizedNiche, count);
+    }
+
+    // Generate niche-relevant hashtags for unknown niches
+    const nicheHashtags = hasSeeds
+      ? seed.hashtags
+      : [
+          `#${normalizedNiche.replace(/\s+/g, "")}`,
+          `#${normalizedNiche.replace(/\s+/g, "")}tok`,
+          `#${normalizedNiche.replace(/\s+/g, "")}community`,
+          "#trending",
+          "#viral",
+          "#fyp",
+          "#foryou",
+          "#explore",
+          `#${normalizedNiche.replace(/\s+/g, "")}tips`,
+          `#${normalizedNiche.replace(/\s+/g, "")}life`,
+        ];
 
     // Fetch real YouTube Shorts for each trend in parallel
     const videoResults = await Promise.all(
@@ -532,7 +561,6 @@ class HybridTrendProvider implements TrendProvider {
       const virality = calculateViralityScore(stage, rand);
       const opportunity = calculateOpportunityScore(stage, saturation, rand);
 
-      // Use real YouTube videos if available, fall back to mock
       const realVideos = videoResults[index] ?? [];
       const videos =
         realVideos.length > 0
@@ -547,8 +575,14 @@ class HybridTrendProvider implements TrendProvider {
         lifecycle_stage: stage,
         description: `${name} is ${stage === "Emerging" ? "a rising format gaining traction" : stage === "Growing" ? "rapidly gaining momentum across platforms" : stage === "Peak" ? "at maximum visibility and engagement" : "showing declining engagement but still relevant"} in the ${niche} niche. Creators are ${stage === "Emerging" ? "starting to experiment with this format" : stage === "Growing" ? "seeing strong engagement and follower growth" : stage === "Peak" ? "seeing massive reach but increasing saturation" : "pivoting to newer variations"}.`,
         videos,
-        hashtags: pickN(seed.hashtags, 5 + Math.floor(rand() * 4), rand),
-        captions: pickN(seed.captions, 3, rand),
+        hashtags: pickN(nicheHashtags, 5 + Math.floor(rand() * 4), rand),
+        captions: hasSeeds
+          ? pickN(seed.captions, 3, rand)
+          : [
+              `This ${niche} content is next level`,
+              `Save this for later — ${niche} tips you need`,
+              `Who else is into ${niche}? Comment below`,
+            ],
         sounds: pickN(seed.sounds, 2 + Math.floor(rand() * 2), rand),
         replication_guide: generateReplicationGuide(seed, rand),
         growth_rate: Math.round((rand() * 200 - 30) * 10) / 10,
@@ -556,6 +590,39 @@ class HybridTrendProvider implements TrendProvider {
       };
     });
   }
+}
+
+/**
+ * Generate niche-specific trend name fallbacks when YouTube
+ * doesn't return enough results (e.g. very niche topics).
+ */
+function generateFallbackTrendNames(niche: string, count: number): string[] {
+  const capitalize = (s: string) =>
+    s.charAt(0).toUpperCase() + s.slice(1);
+  const niceCap = niche
+    .split(" ")
+    .map(capitalize)
+    .join(" ");
+
+  const templates = [
+    `${niceCap} Day in the Life`,
+    `${niceCap} Beginner vs Pro`,
+    `${niceCap} Tips Nobody Talks About`,
+    `${niceCap} Transformation Reveal`,
+    `${niceCap} Hot Takes`,
+    `POV: You're Into ${niceCap}`,
+    `Rating ${niceCap} Content`,
+    `${niceCap} Tier List`,
+    `${niceCap} Myths Debunked`,
+    `${niceCap} Aesthetic Montage`,
+    `${niceCap} Routine Breakdown`,
+    `${niceCap} Starter Pack`,
+    `${niceCap} What I Wish I Knew`,
+    `${niceCap} Challenge Gone Wrong`,
+    `${niceCap} Story Time`,
+  ];
+
+  return templates.slice(0, count);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
